@@ -1,15 +1,18 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"runtime"
 	"time"
 )
 
 var verbose bool
+var vverbose bool
 var talkerIds = map[string]string{
 	"AB": "Independent AIS Base Station",
 	"AD": "Dependent AIS Base Station",
@@ -114,16 +117,111 @@ var talkerIds = map[string]string{
 	"ZV": "Timekeeper - Radio Update, WWV or WWVH",
 }
 
-//////////////////////////////
-///// Sentence Formaters /////
-//////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
+////                      Garmin Proprietary Sentence Formaters                     ////
+//// https://developer.garmin.com/downloads/legacy/uploads/2015/08/190-00684-00.pdf ////
+////////////////////////////////////////////////////////////////////////////////////////
 
-// Garmin Proprietary: https://developer.garmin.com/downloads/legacy/uploads/2015/08/190-00684-00.pdf
+// Sensor Initialization Information
+type GRMI struct {
+	sentence     string
+	lat          float32
+	latDirection byte
+	lon          float32
+	lonDirection byte
+	timeUTC      time.Time
+	receiverCmd  byte // A = Auto Locate   R = Unit Rest
+	checksum     byte
+}
+
+// Sensor Configuration Information
+type GRMC struct {
+	sentence                          string
+	fixMode                           byte    // A = automatic  2 = 2D exclusively (host system must supply altitude)  3 = 3D exclusively
+	altitude                          float32 // meters
+	earthDatumIndex                   uint
+	earthDatumSemiMajorAxis           float32
+	earthDatumInverseFlatteningFactor float64
+	earthDatumDeltaX                  float32
+	earthDatumDeltaY                  float32
+	earthDatumDeltaZ                  float32
+	diffMode                          byte // A = automatic  D = differential exclusively
+	baudRate                          byte // 1 = 1200  2 = 2400  3 = 4800  4 = 9600  5 = 19200  6 = 300  7 = 600
+	velocityFilter                    byte // 0 = No filter  1 = Automatic filter  2-255 = Filter time constant (e.g. 10 = 10 second filter)
+	deadReckoningValidTime            uint // 1 - 30 seconds
+	checksum                          byte
+}
+
+// Additional Sensor Configuration Information
+type GRMC1 struct {
+	sentence                     string
+	outputTime                   uint // 0-900 seconds
+	binaryPhaseOutputData        bool // 1 = off  2 = on
+	autoPosAvgWhenStopped        bool // 1 = off  2 = on
+	dgpsBeaconFreq               float32
+	dgpsBeaconBitRate            float32
+	dgpsBeaconScanning           bool // 1 = off  2 = on
+	nmea0183Ver2_30ModeIndicator bool // 1 = off  2 = on
+	dgpsMode                     bool // W = WAAS Only  N = None (DGPS disabled)
+	adaptTransEnabled            bool // 1 = off  2 = on
+	autoPwrOff                   bool // 1 = off  2 = on
+	pwrOnWithExtCharger          bool // 1 = off  2 = on
+	checksum                     byte
+}
+
+// Output Sentence Enable/Disable
+type GRMO struct {
+	sentence                  string
+	targetSentenceDescription string
+	targetSentenceMode        byte // 0 = disable specified sentence  1 = enable specified sentence  2 = disable all output sentences  3 = enable all output sentences (except GPALM)  4 = restore factory default output sentences
+	checksum                  byte
+}
+
+// Additional Waypoint Information
+type GRMW struct {
+	sentence      string
+	waypointId    string
+	symbolNumber  uint
+	commentString string
+	checksum      byte
+}
+
+// Estimated Error Information
+type GRME struct {
+	sentence      string
+	estHorzPosErr float32 // meters
+	estVertPosErr float32 // meters
+	estPosErr     float32 // meters
+	checksum      byte
+}
+
+// GPS Fix Data Sentence
+type GRMF struct {
+	sentence                string
+	gpsWeekNumber           uint
+	gpsSeconds              uint
+	timeUTC                 time.Time
+	gpsLeapSecCount         uint
+	lat                     float32
+	latDirection            byte
+	lon                     float32
+	lonDirection            byte
+	mode                    byte // M = manual  A = automatic
+	fixType                 byte // 0 = no fix  1 = 2D fix  2 = 3D fix
+	speedOverGround         uint // km/h
+	courseOverGround        uint // degrees true
+	posDilutionOfPrecision  uint
+	timeDilutionOfPrecision uint
+	checksum                byte
+}
+
+//////////////////////////////////
+///// IEC Sentence Formaters /////
+//////////////////////////////////
 
 // Waypoint arrival alarm
 type AAM struct {
-	sentence                 []string
-	header                   string
+	sentence                 string
 	arrivalCircleEntered     bool
 	perpendicularPassed      bool
 	arrivalCircleRadius      float32
@@ -134,8 +232,7 @@ type AAM struct {
 
 // AIS addressed and binary broadcast acknowledgement
 type ABK struct {
-	sentence           []string
-	header             string
+	sentence           string
 	MMSI               uint
 	channel            uint
 	msgId              float32
@@ -147,8 +244,7 @@ type ABK struct {
 
 // AIS addressed binary and safety related message
 type ABM struct {
-	sentence       []string
-	header         string
+	sentence       string
 	totalSentences uint
 	sentenceNum    uint
 	seqMsgId       uint
@@ -161,8 +257,7 @@ type ABM struct {
 
 // AIS channel assignment message
 type ACA struct {
-	sentence                   []string
-	header                     string
+	sentence                   string
 	seqNum                     uint
 	latNE                      float32
 	latNEDirection             byte
@@ -189,16 +284,14 @@ type ACA struct {
 
 // Acknowledge alarm
 type ACK struct {
-	sentence []string
-	header   string
+	sentence string
 	alarmId  uint
 	checksum byte
 }
 
 // AIS channel management information source
 type ACS struct {
-	sentence        []string
-	header          string
+	sentence        string
 	seqNum          uint
 	MMSI            uint
 	receiptDateTime time.Time
@@ -207,8 +300,7 @@ type ACS struct {
 
 // AIS interrogation request
 type AIR struct {
-	sentence               []string
-	header                 string
+	sentence               string
 	MMSIStation1           uint
 	msg1Station1           float32
 	msg1Station1Subsection uint
@@ -226,8 +318,7 @@ type AIR struct {
 
 // Acknowledge detail alarm condition
 type AKD struct {
-	sentence                []string
-	header                  string
+	sentence                string
 	ackTime                 time.Time
 	alarmSrcSysIndicator    string
 	alarmSrcSubSysIndicator string
@@ -241,8 +332,7 @@ type AKD struct {
 
 // Report detailed alarm condition
 type ALA struct {
-	sentence                []string
-	header                  string
+	sentence                string
 	eventTime               time.Time
 	alarmSrcSysIndicator    string
 	alarmSrcSubSysIndicator string
@@ -256,8 +346,7 @@ type ALA struct {
 
 // Set alarm state
 type ALR struct {
-	sentence               []string
-	header                 string
+	sentence               string
 	alarmChangeTime        time.Time
 	alarmId                uint
 	alarmThresholdExceeded bool // A = true, V = false
@@ -267,8 +356,7 @@ type ALR struct {
 
 // Heading/track controller (autopilot) sentence B
 type APB struct {
-	sentence []string
-	header   string
+	sentence string
 }
 
 func Verbose(text string) {
@@ -282,6 +370,12 @@ func Verbose(text string) {
 
 		msg := fmt.Sprintf("%02d:%02d:%02d.%04d | %v | %s:%d | VERBOSE: %v\n", now.Hour(), now.Minute(), now.Second(), now.Nanosecond()/1000000, runtime.FuncForPC(pc).Name(), path.Base(file), line, text)
 		fmt.Fprintf(os.Stderr, "%s", msg)
+	}
+}
+
+func VVerbose(text string) {
+	if vverbose {
+		Verbose(text)
 	}
 }
 
@@ -301,6 +395,51 @@ func Er(err error) {
 	}
 }
 
+/*
+func GetChecksum(sentence string) byte {
+
+	// Checksum includes commas, anthing inside this regex capture group:
+	// ^[$!](.*)\*\[a-zA-Z0-9]{2}$
+
+	var chksum byte
+	regex := regexp.MustCompile(`^[$!](.*)\*\[a-zA-Z0-9]{2}$`)
+	match := regex.FindStringSubmatch(sentence)
+	if len(match) >= 2 {
+		for i := 0; i < len(match[1]); i++ {
+			chksum ^= match[1][i]
+		}
+	}
+	return chksum
+}
+*/
+
+func ValidateChecksum(sentence string) bool {
+	Verbose(fmt.Sprintf("Validating checksum for sentence: %s", sentence))
+	var chksum byte
+	regex := regexp.MustCompile(`^[$!](.*)\*([a-zA-Z0-9]{2})$`)
+	Verbose(fmt.Sprintf("Using regular expresion: %s", regex.String()))
+	match := regex.FindStringSubmatch(sentence)
+	if len(match) >= 3 {
+		for i := 0; i < len(match[1]); i++ {
+			VVerbose(fmt.Sprintf("%02X ^ %02X = %02X", chksum, match[1][i], chksum^match[1][i]))
+			chksum ^= match[1][i]
+		}
+		givenChksum, err := hex.DecodeString(match[2])
+		Er(err)
+
+		if len(givenChksum) >= 1 && chksum == givenChksum[0] {
+			Verbose("Checksums match")
+			return true
+		} else {
+			Verbose("Checksums do not match")
+			return false
+		}
+	} else {
+		Verbose("Regular expression did not match")
+		return false
+	}
+}
+
 func main() {
 	var args []string = os.Args[1:]
 
@@ -309,8 +448,9 @@ func main() {
 
 		if arg == "-h" || arg == "--help" {
 			fmt.Fprintf(os.Stdout, "\n\n%s -- Parse NMEA 0183 data.\n\n", os.Args[0])
-			fmt.Fprintf(os.Stdout, "-h || --help     Print this help message\n")
-			fmt.Fprintf(os.Stdout, "-v || --verbose  Verbose output\n")
+			fmt.Fprintf(os.Stdout, " -h || --help     Print this help message\n")
+			fmt.Fprintf(os.Stdout, " -v || --verbose  Verbose output\n")
+			fmt.Fprintf(os.Stdout, "-vv || --vverbose Very verbose output\n")
 
 			fmt.Fprintf(os.Stdout, "\n")
 			os.Exit(0)
@@ -319,6 +459,11 @@ func main() {
 		if arg == "-v" || arg == "--verbose" {
 			verbose = true
 		}
+
+		if arg == "-vv" || arg == "--vverbose" {
+			verbose = true
+			vverbose = true
+		}
 	}
 
 	for i := 0; i < len(args); i++ {
@@ -326,4 +471,10 @@ func main() {
 
 		Verbose(fmt.Sprintf("Processing argument: %s", arg))
 	}
+
+	Verbose("TEST CHECKSUM:")
+	ValidateChecksum("$GPGGA,210230,3855.4487,N,09446.0071,W,1,07,1.1,370.5,M,-29.5,M,,*7A")
+	ValidateChecksum("$GPGSV,2,1,08,02,74,042,45,04,18,190,36,07,67,279,42,12,29,323,36*77")
+	ValidateChecksum("$GPGSV,2,2,08,15,30,050,47,19,09,158,,26,12,281,40,27,38,173,41*7B")
+	ValidateChecksum("$GPRMC,210230,A,3855.4487,N,09446.0071,W,0.0,076.2,130495,003.8,E*69")
 }
