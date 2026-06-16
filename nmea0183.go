@@ -522,6 +522,184 @@ type BWW struct {
 	checksum        byte
 }
 
+// Configure broadcast rates for AIS AtoN station message command
+type CBR struct {
+	sentence          string
+	mmsi              uint
+	msgId             uint
+	msgIdIdx          uint
+	chanAStartTimeUTC time.Time
+	chanASlotStart    int
+	chanASlotInterval float32
+	setup             byte // 0 = FATDMA  1 = RATDMA  2 = CSTDMA
+	chanBStartTimeUTC time.Time
+	chanBSlotStart    int
+	chanBSlotInterval float32
+	sentenceStatus    byte // R = Sentence is a status report of current settings  C = Sentence is a configuration command to change settings
+	checksum          byte
+}
+
+// Water current layer -- Multi-layer water current data
+type CUR struct {
+	sentence           string
+	validity           bool // A = Valid  V = not valid
+	dataSetNum         uint
+	layerNum           float32
+	currDepth          float32 // meters
+	currDirection      float32 // degrees
+	directionReference byte    // T = true  R = relative
+	currSpeed          float32 // knots
+	refLayerDepth      float32 // meters
+	heading            float32 // degrees
+	headingReference   byte    // T = true  M = magnetic
+	speedReference     byte    // B = Bottom track  W = Water track  P = Positioning system
+	checksum           byte
+}
+
+// Depth below transducer
+type DBT struct {
+	sentence          string
+	waterDepthFeet    float32
+	waterDepthMeters  float32
+	waterDepthFathoms float32
+	checksum          byte
+}
+
+// Display dimming control
+type DDC struct {
+	sentence          string
+	preset            byte // D = Day time setting  K = Dusk setting  N = Night time setting  O = Backlighting off setting
+	brightnessPercent uint
+	colorPalette      byte // D = Day time setting  K = Dusk setting  N = Night time setting  O = Backlighting off setting
+	sentenceStatus    byte // R = Sentence is a status report of current settings  C = Sentence is a configuration command to change settings
+	checksum          byte
+}
+
+// Door status detection
+type DOR struct {
+	sentence                string
+	msgType                 byte // S = Status for section  E = Status for single door  F = Fault in system
+	eventTime               time.Time
+	typeOfDoorMonSys        string // WT = Watertight door  WS = Semi-watertight door  FD = Fire door  HD = Hull door  OT = Other
+	firstDivisionIndicator  string // WT = Bulkhead/frame number  WS = Bulkhead/frame number  FD = Number/letter of zone  HD = Door indication/frame number  OT = Door indication/frame number
+	secondDivisionIndicator uint   // WT = Deck number  WS = Deck number  FD = Deck number or control system loop number or other indicator HD = Deck number OT = Deck number
+	doorNumber              uint   // Door number or door open count
+	doorStatus              byte   // O = Open  C = Closed  S = Secured  F = Free status  X = Fault door
+	watertightSwitch        byte   // O = Harbour mode (allowed open)  C = Sea mode (ordered closed)
+	msgDescription          string
+	checksum                byte
+}
+
+// Depth
+type DPT struct {
+	sentence           string
+	waterDepth         float32 // Water depth relative to the transducer in meters
+	transducerOffset   float32 // Offset from transducer in meters
+	maxRangeScaleInUse float32
+	checksum           byte
+}
+
+// Digital selective calling information
+type DSC struct {
+	sentence           string
+	formateSpecifier   string
+	address            uint
+	category           string
+	telecommand1       string  // Nature of distress or first telecommand
+	telecommand2       string  // Type of communication or second telecommand
+	posFreq            float32 // Position or channel/frequency   See note 8 & 9 IEC 61162-1 Pg. 45
+	timePhone          string  // Time or telephone number
+	mmsi               uint    // MMSI of ship in distress
+	distress           string  // Nature of distress
+	acknowledgement    byte    // R = Acknowledgeme request  B = Acknowledgement  S = Neither (end of sequence)
+	expansionIndicator bool    // E = true  Null = false
+	checksum           byte
+}
+
+// Expanded digital selective calling
+type DSE struct {
+	sentence       string
+	totalSentences uint
+	sentenceNum    uint
+	queryReply     byte // Q = Query  R = Reply  A = Automatic
+	mmsi           uint
+	dataCode       []uint
+	dataField      []string
+	checksum       byte
+}
+
+// Datum reference
+type DTM struct {
+	sentence           string
+	localDatum         string
+	localDatumSubCode  byte
+	latOffset          float32 // minutes
+	latOffsetDirection byte    // N/S
+	lonOffset          float32 // minutes
+	lonOffsetDirection byte    // E/W
+	altitudeOffset     float32 // meters
+	refDatum           string
+	checksum           byte
+}
+
+// Engine telegraph operation status
+type ETL struct {
+	sentence                      string
+	eventTime                     time.Time
+	msgType                       byte // O = Order  A = Answer-back
+	posIndicatorOfEngineTelegraph uint // 00 = STOP ENGINE  01 = [AH] DEAD SLOW  02 = [AH] SLOW  03 = [AH] HALF  04 = [AH] FULL  05 = [AH] NAV. FULL  11 = [AS] DEAD SLOW  12 [AS] SLOW  13 = [AS] HALF  14 = [AS] FULL  15 = [AS] CRASH ASTERN
+	posIndicatorOfSubTelegraph    uint // 20 = S/B (Stand-by engine)  30 = F/A (Full away - Navigation full)  40 = F/E (Finish with engine)
+	operatingLocIndicator         uint // B = Bridge  P = Port wing  S = Starboard wing  C = Engine control room  E = Engine side / local  W = Wing (port or starboard not specified)
+	numEngineProp                 uint // Number of engine or propeller shaft,  0 = single or on center-line  Odd = starboard  Even = port
+	checksum                      byte
+}
+
+// General event message
+type EVE struct {
+	sentence         string
+	eventTime        time.Time
+	tagCode          string
+	eventDescription string
+	checksum         byte
+}
+
+// Fire detection
+type FIR struct {
+	sentence              string
+	msgType               byte // S = Status for section  E = Status for each fire detector  F = Fault in system  D = Disabled
+	eventTime             time.Time
+	typeOfDetectionSystem string // FD = Generic fire  FH = Heat type  FS = Smoke type  FD = Smoke and heat  FM = Manual call point  GD = Any gas  GO = Oxygen gas  GS = Hydrogen sulphide gas  GH = Hydro-carbon gas  SF = Sprinkler flow switch  SV = Sprinkler manual valve release  CO = CO2 manual release  OT = Other
+	division1Indicator    string // Any detection system = Number/letter of zone
+	division2Indicator    string // Any detection system = Loop number
+	detectorNumCount      uint   // Fire detector number or activation detection count, when msgType = E this identifies the dector, when msgType = S this contains the number of fire dectors activated
+	condition             byte   // A = Activation  V = Non-activation  X = Fault (state unknown)
+	alarmAcknowledged     bool   // A = true  V = false
+	msgDescription        string
+	checksum              byte
+}
+
+// Frequency set information
+type FSI struct {
+	sentence       string
+	txFreq         uint // Hz
+	rxFreq         uint // Hz
+	mode           byte // d = F3E/G3E, simplex, telephone  e = F3E/G3E, duplex, telephone  m = J3E, telephone  o = H3E, telephone  q = F1B/J2B FEC NBDP, telex/teleprinter  s = F1B/J2B ARQ NBDP, telex/teleprinter  t = F1B/J2B recv only, teleprinter/DSC  w = F1B/J2B, teleprinter/DSC  x = A1A Morse, tape recorder  { = A1A Morse, Morse key/head set  | = F1C/F2C/F3C, facsimile machine
+	pwrLvl         uint // 0 = standby  1 = lowest  9 = highest
+	sentenceStatus byte // R = Sentence is a status report of current settings  C = Sentence is a configuration command to change settings
+	checksum       byte
+}
+
+// GNSS satellite fault detection
+type GBS struct {
+	sentence         string
+	timeUtc          time.Time
+	expectedErrInLat float32 // meters
+	expectedErrInLon float32 // meters
+	expectedErrInAlt float32 // meters
+
+	checksum byte
+}
+
 func Verbose(text string) {
 	now := time.Now()
 	if verbose {
