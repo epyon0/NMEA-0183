@@ -215,6 +215,71 @@ type GRMF struct {
 	checksum                byte
 }
 
+// Aviation Height and VNAV Data
+type GRMH struct {
+	sentence                 string
+	dataStatus               bool // A = data valid  V - data unusable
+	vertSpeed                int  // feet/minute
+	vnavProfileErr           int
+	vertSpeedToVnavTarget    int     // feet/minute
+	vertSpeedToNextWaypoint  int     // feet/minute
+	approxHeightAboveTerrain uint    // feet, rounded to next lowest 100 feet
+	desiredTrack             float32 // degrees true
+	checksum                 byte
+}
+
+// Map Datum
+type GRMM struct {
+	sentence     string
+	currMapDatum string
+	checksum     byte
+}
+
+// Sensor Status Information
+type GRMT struct {
+	sentence                string
+	prodModelSwVer          string
+	romChecksumTest         bool // P = pass  F = fail
+	recvFailDiscrete        bool // P = pass  F = fail
+	storedDataLost          bool // R = retained  L = lost
+	oscillatorDriftDiscrete bool // P = pass  F = excessive drift detected
+	dataCollectionDiscrete  bool // C = collecting  null if not collecting
+	gpsSensorTempC          float32
+	gpsSensorConfigData     bool // R = retained  L = lost
+	checksum                byte
+}
+
+// 3D velocity Information
+type GRMV struct {
+	sentence         string
+	trueEastVelocity float32 // meters/second
+	trueNortVelocity float32 // meters/second
+	upVelocity       float32 // meters/second
+	checksum         byte
+}
+
+// Altitude
+type GRMZ struct {
+	sentence     string
+	currAltitude float32 // feet
+	fixType      byte    // 1 = no fix  2 = 2D fix  3 = 3D fix
+	checksum     byte
+}
+
+// DGPS Beacon Information
+type GRMB struct {
+	sentence               string
+	beaconTuneFreq         float32 // kHz
+	beaconBitRate          uint    // bits/second
+	beaconSNR              uint
+	beaconDataQuality      uint
+	distToBeaconRefStation float32 // kilometers
+	beaconRecvCommStatus   byte    // 0 = Check Wiring  1 = No Signal  2 = Tuning  3 = Receiving  4 = Scanning
+	dgpsFixSrc             byte    // R = RTCM  W = WASS  N = Non-DGPS Fix
+	dgpsMode               byte    // A = Automatic  W = WASS Only  R = RTCM Only  N = None (DGPS disabled)
+	checksum               byte
+}
+
 //////////////////////////////////
 ///// IEC Sentence Formaters /////
 //////////////////////////////////
