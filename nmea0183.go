@@ -117,10 +117,9 @@ var talkerIds = map[string]string{
 	"ZV": "Timekeeper - Radio Update, WWV or WWVH",
 }
 
-////////////////////////////////////////////////////////////////////////////////////////
-////                      Garmin Proprietary Sentence Formaters                     ////
-//// https://developer.garmin.com/downloads/legacy/uploads/2015/08/190-00684-00.pdf ////
-////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////
+//// Garmin Proprietary Sentence Formaters ////
+///////////////////////////////////////////////
 
 // Sensor Initialization Information
 type GRMI struct {
@@ -280,9 +279,9 @@ type GRMB struct {
 	checksum               byte
 }
 
-//////////////////////////////////
-///// IEC Sentence Formaters /////
-//////////////////////////////////
+//////////////////////////////////////////
+///// IEC 61162-1 Sentence Formaters /////
+//////////////////////////////////////////
 
 // Waypoint arrival alarm
 type AAM struct {
@@ -421,7 +420,106 @@ type ALR struct {
 
 // Heading/track controller (autopilot) sentence B
 type APB struct {
-	sentence string
+	sentence                         string
+	status1                          byte // A = Data valid  V = LORAN-C blink or SNR warning  V = general warning flag for other navigation systems when a reliable fix is not available
+	status2                          byte // A = OK or not used  V = LORAN-C cycle lock warning flag
+	magnitudeXTE                     float32
+	directionToSteer                 byte // L/R
+	xteUnits                         byte // nautical miles
+	status3                          byte // A = arrival circle entered  V = arrival circle not passed
+	status4                          byte // A = perpendicular passed at waypoint  V = perpendicular not entered
+	bearingOriginToDest              float32
+	bearingOriginToDestTrue          byte // M = magnetic  T = true
+	destWaypointId                   string
+	bearingPresentPosToDest          float32
+	bearingPresentPosToDestTrue      byte // M = magnetic  T = true
+	headingToSteerToDestWaypoint     float32
+	headingToSteerToDestWaypointTrue byte // M = magnetic  T = true
+	mode                             byte // A = Autonomous mode  D = Differential mode  E = Estimaged (dead reckoning) mode  M = Manual input mode  S = Simulator mode  N = Data not valid
+	checksum                         byte
+}
+
+// AIS  broadcasting binary message
+type BBM struct {
+	sentence       string
+	totalSentences uint
+	sentenceNum    uint
+	seqMsgId       uint
+	channel        byte // 0 = no broadcast chan preference  1 = broadcast on AIS channel A  2 = broadcast on AIS channel B  3 = broadcast the message on both AIS channels A and B
+	msgId          uint
+	data           string
+	fillBits       uint
+	checksum       byte
+}
+
+// Bearing and distance to waypoint -- Dead reckoning
+type BEC struct {
+	sentence             string
+	timeUTC              time.Time
+	waypointLat          float32
+	waypointLatDirection byte // N/S
+	waypointLon          float32
+	waypointLonDirection byte    // E/W
+	bearingTrue          float32 // degrees
+	bearingMagnetic      float32 // degrees
+	distance             float32
+	distanceUnits        byte // nautical miles
+	waypointId           string
+	checksum             byte
+}
+
+// Bearing origin to detination
+type BOD struct {
+	sentence        string
+	bearingTrue     float32 // degrees
+	bearingMagnetic float32 // degrees
+	destWaypointId  string
+	origWaypointId  string
+	checksum        byte
+}
+
+// Bearing and distance to waypoint -- Great circle
+type BWC struct {
+	sentence             string
+	timeUTC              time.Time
+	waypointLat          float32
+	waypointLatDirection byte // N/S
+	waypointLon          float32
+	waypointLonDirection byte    // E/W
+	bearingTrue          float32 // degrees
+	bearingMagnetic      float32 // degrees
+	distance             float32
+	distanceUnits        byte // nautical miles
+	waypointId           string
+	mode                 byte // A = Autonomous mode  D = Differential mode  E = Estimaged (dead reckoning) mode  M = Manual input mode  S = Simulator mode  N = Data not valid
+	checksum             byte
+}
+
+// Bearing and distance to waypoint -- Rhumb line
+type BWR struct {
+	sentence             string
+	timeUTC              time.Time
+	waypointLat          float32
+	waypointLatDirection byte // N/S
+	waypointLon          float32
+	waypointLonDirection byte    // E/W
+	bearingTrue          float32 // degrees
+	bearingMagnetic      float32 // degrees
+	distance             float32
+	distanceUnits        byte // nautical miles
+	waypointId           string
+	mode                 byte // A = Autonomous mode  D = Differential mode  E = Estimaged (dead reckoning) mode  M = Manual input mode  S = Simulator mode  N = Data not valid
+	checksum             byte
+}
+
+// Bearing waypoint to waypoint
+type BWW struct {
+	sentence        string
+	bearingTrue     float32 // degrees
+	bearingMagnetic float32 // degrees
+	toWaypointId    string
+	fromWaypointId  string
+	checksum        byte
 }
 
 func Verbose(text string) {
