@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path"
 	"regexp"
@@ -696,6 +698,115 @@ type GBS struct {
 	expectedErrInLat float32 // meters
 	expectedErrInLon float32 // meters
 	expectedErrInAlt float32 // meters
+	id               uint
+	probMissDetect   float32
+	estBias          float32
+	estStdDevBias    float32
+	gnssSystemId     byte // 1 (GP) = GPS  2 (GL) = GLONAS  3 (GA) = GALILEO
+	gnssSignalId     byte // See IEC 61162-1 Table on Pg. 51
+	checksum         byte
+}
+
+// Generic binary information
+type GEN struct {
+	sentence string
+	index    uint16 // 4 char string of hex character to be converted to 16-bit number
+	time     time.Time
+	data     []byte // series of comma seperate 4 char hex strings to be converted to a byte slice
+	checksum byte
+}
+
+// GNSS fix accuracy and integrity
+type GFA struct {
+	sentence                      string
+	timeUTC                       time.Time
+	horzProtectLvl                float32 // meters
+	vertProtectLvl                float32 // meters
+	axisOfErrSemiMajorStdDev      float32 // meters
+	axisOfErrSemiMinorStdDev      float32 // meters
+	axisOfErrSemiMajorOrientation float32 //meters
+	altStdDev                     float32 // meters
+	accuracyLvl                   float32 // meters
+	integrityStatus               string
+	checksum                      byte
+}
+
+// Global positioning system (GPS) fix data
+type GGA struct {
+	sentence          string
+	timeUTC           time.Time
+	lat               float32
+	latDirection      byte // N/S
+	lon               float32
+	lonDirection      byte // E/W
+	quality           int  // 0 = fix not available or invalid  1 = GPS SPS mode  2 = differential GPS, SPS mode  3 = GPS PPS mode  4 = Real Time Kinematic (RTK)  5 = Float RTK  6 = Estimated (dead reckoning) mode  7 = Manual input mode  8 = Simulator mode
+	satsNum           int
+	hdop              float32
+	altSeaLvl         float32 // meters
+	geoidalSeparation float32 // meters
+	age               float32
+	diffRefStationId  int
+	checksum          byte
+}
+
+// Geographic position -- Latitude/longitude
+type GLL struct {
+	sentence     string
+	lat          float32
+	latDirection byte // N/S
+	lon          float32
+	lonDirection byte // E/W
+	timeUTC      time.Time
+	status       byte // A = data valid  V = data invalid
+	mode         byte // A = Autonomous  D = Differential  E = Estimated (dead reckoning)  M = Manual input  S = Simulator  N = Data not valid
+	checksum     byte
+}
+
+// GNSS fix data
+type GNS struct {
+	sentence           string
+	timeUTC            time.Time
+	lat                float32
+	latDirection       byte // N/S
+	lon                float32
+	lonDirection       byte   // E/W
+	mode               string // A = Autonomous  D = Differential  E = Estimated (dead reckoning)  F = Float RTK  M = Manual  N = No fix  P = Precise  R = Real Time Kinematic (RTK)  S = Simulator
+	satsNum            int
+	hdop               float32
+	altSeaLvl          float32 // meters
+	geoidalSeparation  float32
+	age                float32
+	diffRefStationId   float32
+	navStatusIndicator byte // S = Safe  C = Caution  U = Unsafe  V = Navigational status not valid
+	checksum           byte
+}
+
+// GNSS range residuals
+type GRS struct {
+	sentence       string
+	mode           byte // 0 = residuals were used to calculate position  1 = residuals were re-computed after positon was computed
+	rangeResiduals []float32
+	gnssSystemId   byte // 1 (GP) = GPS  2 (GL) = GLONASS  3 (GA) = GALILEO  4-F = RESERVED
+	signalId       byte
+	checksum       byte
+}
+
+// GNSS DOP and active satellites
+type GSA struct {
+	sentence     string
+	mode1        byte // M = manual  A = automatic
+	mode2        byte // 1 = fix not available  2 = 2D  3 = 3D
+	prns         []int
+	pdop         float32
+	hdop         float32
+	vdop         float32
+	gnssSystemId byte // 1 (GP) = GPS  2 (GL) = GLONASS  3 (GA) = GALILEO  4-F = RESERVED
+	checksum     byte
+}
+
+// GNSS pseudorange noise statistics
+type GST struct {
+	sentence string
 
 	checksum byte
 }
@@ -772,7 +883,7 @@ func ValidateChecksum(sentence string) bool {
 			Verbose("Checksums match")
 			return true
 		} else {
-			Verbose("Checksums do not match")
+			Verbose(fmt.Sprintf("Checksums do not match: 0x%02X != 0x%02X    Delta of: %d [0x%X]", chksum, givenChksum[0], int(math.Abs(float64(chksum-givenChksum[0]))), int(math.Abs(float64(chksum-givenChksum[0])))))
 			return false
 		}
 	} else {
@@ -813,9 +924,16 @@ func main() {
 		Verbose(fmt.Sprintf("Processing argument: %s", arg))
 	}
 
-	Verbose("TEST CHECKSUM:")
-	ValidateChecksum("$GPGGA,210230,3855.4487,N,09446.0071,W,1,07,1.1,370.5,M,-29.5,M,,*7A")
-	ValidateChecksum("$GPGSV,2,1,08,02,74,042,45,04,18,190,36,07,67,279,42,12,29,323,36*77")
-	ValidateChecksum("$GPGSV,2,2,08,15,30,050,47,19,09,158,,26,12,281,40,27,38,173,41*7B")
-	ValidateChecksum("$GPRMC,210230,A,3855.4487,N,09446.0071,W,0.0,076.2,130495,003.8,E*69")
+	test()
+}
+
+func test() {
+	file, err := os.Open("./docs/test_sentences.txt")
+	Er(err)
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		Verbose("TEST CHECKSUM:")
+		ValidateChecksum(scanner.Text())
+	}
 }
