@@ -806,6 +806,118 @@ type GSA struct {
 
 // GNSS pseudorange noise statistics
 type GST struct {
+	sentence                      string
+	timeUTC                       time.Time
+	rms                           float32
+	axisOfErrSemiMajorStdDev      float32 // meters
+	axisOfErrSemiMinorStdDev      float32 // meters
+	axisOfErrSemiMajorOrientation float32 // degrees from true north
+	latErrStdDev                  float32 // meters
+	lonErrStdDev                  float32 // meters
+	altErrStdDev                  float32 // meters
+	checksum                      byte
+}
+
+// GNSS satellites in view
+type GSV struct {
+	sentence  string
+	msgTotal  uint
+	msgNum    uint
+	satsTotal uint
+	satIdNum  []uint
+	elevation []int // 90 degress max
+	azimuth   []uint
+	snr       []uint
+	signalId  byte // 1 (GP) = GPS  2 (GL) = GLONASS  3 (GA) = GALILEO  4-F = RESERVED
+	checksum  byte
+}
+
+// Heartbeat supervision sentence
+type HBT struct {
+	sentence        string
+	repeatInterval  float32 // seconds
+	equipmentStatus byte    // Equipment in normal operation    A = yes  V = no
+	seqSentenceId   uint
+	checksum        byte
+}
+
+// Heading, deviation and variation
+type HDG struct {
+	sentence              string
+	magSensorHeading      float32 // degrees
+	magDeviation          float32 // degrees
+	magDeviationDirection byte    // E/W
+	magVariation          float32 // degrees
+	magVariationDirection byte    // E/W
+	checksum              byte
+}
+
+// Heading true
+type HDT struct {
+	sentence string
+	heading  float32 // degrees true
+	checksum byte
+}
+
+// Heading monitor receive
+type HMR struct {
+	sentence                    string
+	headingSensor1Id            string
+	headingSensor2Id            string
+	setDiffByHMS                float32 // degrees
+	actualHeadingSensorDiff     float32 // degrees
+	warnFlag                    byte    // A = difference within set limit  V = difference exceeds set limit
+	actualHeadingReadingSensor1 float32 // degrees
+	statusHeadingSensor1        byte    // A = Data valid  V = Data invalid
+	typeSensor1                 byte    // T = True  M = Magnetic
+	devSensor1                  float32 //degrees
+	devSensor1Direction         byte    // E/W
+	actualHeadingReadingSensor2 float32 // degrees
+	statusHeadingSensor2        byte    // A = Data valid  V = Data invalid
+	typeSensor2                 byte    // T = True  M = Magnetic
+	devSensor2                  float32 // degrees
+	devSensor2Direction         byte    // E/W
+	variation                   float32 // degrees
+	VariationDirection          byte    // E/W
+	checksum                    byte
+}
+
+// Heading monitor set
+type HMS struct {
+	sentence         string
+	headingSensor1Id string
+	headingSensor2Id string
+	maxDiff          float32 // degrees, max difference between both sensors which is accepted
+	checksum         byte
+}
+
+// Heading steering command
+type HSC struct {
+	sentence             string
+	commandedHeadingTrue float32 // degrees true
+	commandedHeadingMag  float32 // degrees magnetic
+	senteceStatus        byte    // R = Sentence is a status report of current settings  C = Sentence is a configuration command to change settings
+	checksum             byte
+}
+
+// Hull stress surveillance systems
+type HSS struct {
+	sentence     string
+	measureId    string
+	measureValue float32
+	stauts       byte // A = data valid  V = data invalid
+	checksum     byte
+}
+
+// Heading/track control command
+type HTC struct {
+	sentence string
+
+	checksum byte
+}
+
+// Heading/track control data
+type HTD struct {
 	sentence string
 
 	checksum byte
